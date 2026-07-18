@@ -1,0 +1,62 @@
+{
+	"server": {
+		"host": "127.0.0.1",
+		"port": 7878,
+		"browser": null
+	},
+
+	"indexer": {
+		"depth": 1,
+		"ignore": [
+			"**/*.git",
+			"**/*node_modules",
+			"**/*target",
+			"**/*.cache"
+		],
+		"include_hidden": false,
+		"extensions": [
+			"md",
+			"markdown"
+		]
+	},
+
+	"pandoc_theme": "light",
+
+	"pandoc": {
+		"binary_path": null,
+		"themes": {
+			"dark": [
+				"--template",            "~/.config/tatr/theme/dark/template.html",
+				"--include-before-body", "~/.config/tatr/theme/dark/nvbar.html",
+				"--include-after-body",  "~/.config/tatr/theme/dark/footer.html",
+				"--css",                 "~/.config/tatr/theme/dark/style.css",
+				"--standalone"
+			],
+			"light": [
+				"--template",            "~/.config/tatr/theme/light/template.html",
+				"--include-before-body", "~/.config/tatr/theme/light/nvbar.html",
+				"--include-after-body",  "~/.config/tatr/theme/light/footer.html",
+				"--css",                 "~/.config/tatr/theme/light/style.css",
+				"--standalone"
+			],
+			"dracula": [
+				"--template",            "~/.config/tatr/theme/dracula/template.html",
+				"--include-before-body", "~/.config/tatr/theme/dracula/nvbar.html",
+				"--include-after-body",  "~/.config/tatr/theme/dracula/footer.html",
+				"--css",                 "~/.config/tatr/theme/dracula/style.css",
+				"--standalone"
+			]
+		}
+	},
+
+	"logging": {
+		"level": "info",
+		"file": null
+	},
+
+	"watch": {
+		"enabled": false,
+		"polling": false,
+		"debounce_ms": 500
+	}
+}
