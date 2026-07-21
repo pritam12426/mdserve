@@ -1,6 +1,7 @@
 #include <argp.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +25,8 @@ static char doc[]                    = MAIN_BINARY " - " PROJECT_DESC;
 /* ── CLI option table ─────────────────────────────────────────────────────── */
 // Each option group has a section number for grouping in --help output
 static struct argp_option options[] = {
+	{ "config-init", 'I', 0,         0,  "Write the default configuration to $XDG_CONFIG_HOME/tatr/config.json"},
+
 	{ 0, 0, 0, 0, "Logging:", 1 },
 	{ "log-level",     'L', "LEVEL", 0, "Set log level: [off|fatal|error|warn|info|debug|trace] (default: info)", 1 },
 	{ "log-file",      'F', "FILE",  0, "Set logging file",                                                       1 },
@@ -36,10 +39,18 @@ static struct argp_option options[] = {
 	{ 0, 0, 0, 0, "Connection:", 3 },
 	{ "port",        'P', "PORT",    0,  "TCP port to listen on (default: 8080)",                      3 },
 	{ "host",        'H', "HOST",    0,  "Listener host / IP (default: localhost)",                    3 },
-	{ "threads",    'T', "NUM",     0,  "Thread pool size (default: 2)",                              3 },
-	{ "keep-alive", 'K', "SECS",    0,  "Keep-alive timeout in seconds (default: 3, 0 = disable)",    3 },
-	{ "max-conns",  'M', "NUM",     0,  "Max concurrent connections per IP (default: 0 = unlimited)", 3 },
-	{ "browser",    'B', "BROWSER", 0,  "Open page in BROWSER on startup (e.g. firefox)",             3 },
+
+	{ 0, 0, 0, 0, "Server:", 4 },
+	{ "threads",        'T', "NUM",     0,  "Thread pool size (default: 2)",                              4 },
+	{ "keep-alive",     'K', "SECS",    0,  "Keep-alive timeout in seconds (default: 3, 0 = disable)",    4 },
+	{ "max-conns",      'M', "NUM",     0,  "Max concurrent connections per IP (default: 0 = unlimited)", 4 },
+	{ "browser",        'B', "BROWSER", 0,  "Open page in BROWSER on startup (e.g. firefox)",             4 },
+	{ "depth",          'D', "DEPTH",   0,  "Recursion depth  (default: 2)",                              4 },
+	{ "include-hidden", 'h', 0,         0,  "Include hidden files (default: false)",                      4 },
+
+	{ 0, 0, 0, 0, "Pandoc:", 5 },
+	{ "pandoc-binary",  'b', "PATH",   0,  "Path of pandoc executable (default: $PATH)",             5 },
+	{ "pandoc-theme",   't', "PRESET", 0,  "Select theme from configure json",                       5 },
 
 	{ 0 }
 };
@@ -47,15 +58,21 @@ static struct argp_option options[] = {
 /* ── Arguments struct (mirrors ServerConfig) ──────────────────────────────── */
 // Stored as globals so parse_opt() can fill them; later copied into ServerConfig
 typedef struct {
-	const char  *user;             // -u: Basic-Auth username (NULL = disabled)
-	const char  *pass;             // -p: Basic-Auth password (NULL = disabled)
-	const char  *browser;          // -B: browser to open on start
-	const char  *host;             // -H: bind address (default: localhost)
+	bool         config_init;   // -I: Write default configuration
 
-	int          port;             // -P: listen port (default: 8080)
-	int          threads;          // -T: thread pool size (default: 2)
-	int          keep_alive;       // -K: keep-alive timeout (default: 3)
-	int          max_conns;        // -M: max conns per IP (default: 0 = unlimited)
+	const char  *user;          // -u: Basic-Auth username (NULL = disabled)
+	const char  *pass;          // -p: Basic-Auth password (NULL = disabled)
+	const char  *browser;       // -B: browser to open on start
+	const char  *host;          // -H: bind address (default: localhost)
+
+	int          port;          // -P: listen port (default: 8080)
+	int          threads;       // -T: thread pool size (default: 2)
+
+	int          keep_alive;    // -K: keep-alive timeout (default: 3)
+	int          max_conns;     // -M: max conns per IP (default: 0 = unlimited)
+
+	const char  *pandoc_binary; // -b: path of pandoc executive (default: $PATH)
+	const char  *pandoc_theme;  // -t: theme for pandoc form configuration .pandoc.themes (default: .pandoc_theme)
 
 	const char  *log_file;      // -F: Where it has to append logs instead of STDERR
 	bool         print_request; // -R: log every request
@@ -67,8 +84,13 @@ static Arguments G_Args = {
 	.pass            = NULL,
 	.browser         = NULL,
 	.host            = "localhost",
+
 	.port            = 8080,
 	.threads         = 2,
+
+	.pandoc_binary   = NULL,
+	.pandoc_theme    = NULL,
+
 	.keep_alive      = 3,
 	.max_conns       = 0,
 

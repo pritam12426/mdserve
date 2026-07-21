@@ -40,11 +40,12 @@ endif
 BUILD       =  build
 BIN         =  mdserve
 
-
 # cJSON (mandatory — always downloaded, built, and linked)
 CJSON_DIR     =  third_party/cJson
 CJSON_GITHUB  =  https://raw.githubusercontent.com/DaveGamble/cJSON/refs/tags/v1.7.19
 
+CONFIG_JSON_C_FILE   = $(BUILD)/config_json.c
+RAW_JSON_CONFIG_FILE = etc/config.json
 
 FRONT_END_FILES = \
     front_end/javascript/main.js \
@@ -76,6 +77,8 @@ DEP       = $(OUT:.o=.d)
 # cJSON — mandatory, always built and linked
 CFLAGS += -I$(CJSON_DIR)
 OUT    += $(BUILD)/$(CJSON_DIR)/cJSON.o $(BUILD)/$(CJSON_DIR)/cJSON_Utils.o
+
+CONFIG_JSON_O = $(BUILD)/config_json.o
 
 all: $(BIN)
 
@@ -124,6 +127,13 @@ $(FRONT_END_GENERATED_O): $(FRONT_END_GENERATED_C)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $(FRONT_END_GENERATED_C) -o $@
 
+# ── config.c / .h rules (mandatory) ──────────────────────────────────────────────────
+
+$(CONFIG_JSON_C_FILE): $(RAW_JSON_CONFIG_FILE)
+	(echo '#include "config_json.h"' && \
+		xxd -n "config_json" -i $(RAW_JSON_CONFIG_FILE)) | \
+		sed 's/^unsigned char/const unsigned char/; s/^unsigned int/const unsigned long long int/' > $(CONFIG_JSON_C_FILE)
+
 # ── cJSON rules (mandatory) ──────────────────────────────────────────────────
 
 $(CJSON_DIR):
@@ -162,8 +172,12 @@ clean-cjson:  ## Remove downloaded cJSON sources and their build objects
 
 # ── Build targets ────────────────────────────────────────────────────────────
 
-$(BIN): $(OUT) $(FRONT_END_GENERATED_O) ## Build the mdserve binary
-	$(CC) $(LDFLAGS) -o $@ $(OUT) $(FRONT_END_GENERATED_O) $(LDLIBS)
+$(CONFIG_JSON_O): $(CONFIG_JSON_C_FILE) | $(BUILD)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -w -c $< -o $@
+
+$(BIN): $(OUT) $(FRONT_END_GENERATED_O) $(CONFIG_JSON_O) ## Build the mdserve binary
+	$(CC) $(LDFLAGS) -o $@ $(OUT) $(FRONT_END_GENERATED_O) $(CONFIG_JSON_O) $(LDLIBS)
 
 debug:  ## Build the debug binary — run `make debug`
 	$(MAKE) $(BIN) O_DEBUG=1
@@ -176,7 +190,7 @@ install: all  ## Install the mdserve binary
 	$(INSTALL) -m 0755 mdserve.1 $(DESTDIR)$(MANPREFIX)/man1/$(BIN).1
 
 clean:  ## Clean up build artifacts
-	$(RM) -rf $(BUILD)/src/* $(BIN)
+	$(RM) -rf $(BUILD)/src/* $(BUILD)/config_json.o $(BIN)
 
 uninstall:  ## Uninstall the mdserve binary
 	$(RM) $(DESTDIR)$(PREFIX)/bin/$(BIN)
